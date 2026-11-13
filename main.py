@@ -161,7 +161,8 @@ def add_session(state: State) -> Page:
 
 
 @route
-def save_session(state: State, game: str, drill: str, minutes: str, accuracy: str) -> Page:
+def save_session(state: State, game: str = "", drill: str = "",
+                 minutes: str = "", accuracy: str = "") -> Page:
     """Add a validated session, then display the full history."""
     duration = whole_number(minutes)
     percentage = number(accuracy)
@@ -197,7 +198,7 @@ def history(state: State) -> Page:
 
 
 @route
-def delete_session(state: State, session_index: int) -> Page:
+def delete_session(state: State, session_index: int = -1) -> Page:
     """Delete the selected record only when its index is valid."""
     if session_index < 0 or session_index >= len(state.sessions):
         return history_page(state, "That session is unavailable. Choose an existing record.")
@@ -223,7 +224,7 @@ def settings(state: State) -> Page:
 
 
 @route
-def save_settings(state: State, selected_game: str, practice_goal: str) -> Page:
+def save_settings(state: State, selected_game: str = "", practice_goal: str = "") -> Page:
     """Validate both preferences before updating either State field."""
     goal = whole_number(practice_goal)
     if selected_game not in GAMES or goal <= 0:
@@ -272,8 +273,8 @@ def converter(state: State) -> Page:
 
 
 @route
-def convert_sensitivity(state: State, source_game: str, target_game: str,
-                        dpi: str, source_sensitivity: str) -> Page:
+def convert_sensitivity(state: State, source_game: str = "CS2", target_game: str = "VALORANT",
+                        dpi: str = "800", source_sensitivity: str = "1") -> Page:
     """Validate supported games and safe positive settings before conversion."""
     dots = whole_number(dpi)
     sensitivity = number(source_sensitivity)
@@ -341,7 +342,8 @@ def gear(state: State) -> Page:
 
 
 @route
-def filter_gear(state: State, category: str, budget: str, wireless_only: bool) -> Page:
+def filter_gear(state: State, category: str = "Mouse", budget: str = "",
+                wireless_only: bool = False) -> Page:
     """Save a valid budget and display matching catalog items."""
     amount = number(budget)
     if category not in ("Mouse", "Mousepad") or not 0 <= amount <= 1000000:

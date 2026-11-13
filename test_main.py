@@ -17,6 +17,15 @@ def text(result: main.Page) -> str:
 class ToolboxTests(unittest.TestCase):
     """Exercise every route, rejected input, and meaningful State updates."""
 
+    def test_action_refresh(self) -> None:
+        """Missing form arguments after a browser refresh never mutate State."""
+        state = main.new_state()
+        original = deepcopy(state)
+        for action in (main.save_session, main.delete_session, main.save_settings,
+                       main.convert_sensitivity, main.filter_gear):
+            self.assertIsInstance(action(state), main.Page)
+            self.assertEqual(state, original)
+
     def test_index(self) -> None:
         """Empty logs and mixed-game totals use the saved game."""
         state = main.new_state()
