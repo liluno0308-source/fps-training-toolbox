@@ -21,7 +21,7 @@ class ToolboxTests(unittest.TestCase):
         """Missing form arguments after a browser refresh never mutate State."""
         state = main.new_state()
         original = deepcopy(state)
-        for action in (main.save_session, main.delete_session, main.save_settings,
+        for action in (main.save_session, main.confirm_delete, main.delete_session, main.save_settings,
                        main.convert_sensitivity, main.filter_gear):
             self.assertIsInstance(action(state), main.Page)
             self.assertEqual(state, original)
@@ -68,6 +68,10 @@ class ToolboxTests(unittest.TestCase):
         state = main.new_state()
         main.save_session(state, "other", "", "30", "70")
         self.assertEqual(state.sessions, [])
+        main.save_session(state, "CS2", "x" * 81, "30", "70")
+        self.assertEqual(state.sessions, [])
+        main.save_session(state, "CS2", "x" * 80, "30", "70")
+        self.assertEqual(len(state.sessions), 1)
 
     def test_history(self) -> None:
         """History shows all games and distinct deletion indices."""
@@ -89,6 +93,18 @@ class ToolboxTests(unittest.TestCase):
         before = deepcopy(state)
         self.assertIn("unavailable", text(main.delete_session(state, -1)))
         main.delete_session(state, 9)
+        self.assertEqual(state, before)
+
+    def test_confirm_delete(self) -> None:
+        """A delete prompt identifies the record without mutating the log."""
+        state = main.new_state()
+        main.save_session(state, "CS2", "Tracking", "30", "75")
+        before = deepcopy(state)
+        result = text(main.confirm_delete(state, 0))
+        self.assertIn("Confirm Delete", result)
+        self.assertIn("Keep Session", result)
+        self.assertEqual(state, before)
+        self.assertIn("unavailable", text(main.confirm_delete(state, -1)))
         self.assertEqual(state, before)
 
     def test_settings(self) -> None:

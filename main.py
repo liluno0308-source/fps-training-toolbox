@@ -6,6 +6,8 @@ from drafter import (
     Page, Header, Paragraph, Button, TextBox, SelectBox, CheckBox, Label,
     Table, Link, Div, route, start_server, set_site_information,
     set_website_title, hide_debug_information, set_website_framed,
+    add_website_css_file, ProgressBar,
+    set_website_style,
 )
 
 
@@ -53,13 +55,45 @@ def new_state() -> State:
     return State([], 60, "CS2", 75.0)
 
 
-def navigation() -> list:
-    """Build the same navigation on each of the six pages."""
-    return [
-        Button("Dashboard", index), Button("Add Training", add_session),
-        Button("Training History", history), Button("Settings", settings),
-        Button("Sensitivity Converter", converter), Button("Peripheral Finder", gear),
-    ]
+def box(content: list, class_name: str) -> Div:
+    """Group components with a named CSS class.
+
+    ** expands a dictionary into keyword arguments. This lets Python send the
+    HTML attribute named class, which is otherwise a reserved Python keyword.
+    The separate site.css file controls presentation, not application State.
+    """
+    return Div(content, **{"class": class_name})
+
+
+def note(message: str, class_name: str = "hint") -> Paragraph:
+    """Render a short message using a shared visual treatment."""
+    attributes = {"class": class_name}
+    if class_name == "error":
+        attributes["role"] = "alert"
+    elif class_name == "success":
+        attributes["role"] = "status"
+    return Paragraph(message, **attributes)
+
+
+def action(label: str, target: object, kind: str = "primary",
+           arguments: dict | None = None) -> Button:
+    """Build a consistently styled real Drafter button, including arguments."""
+    return Button(label, target, arguments=arguments, **{"class": "action " + kind})
+
+
+def navigation(active: str) -> list:
+    """Mark the current page and keep the same six navigation destinations."""
+    destinations = [("Dashboard", index), ("Add Training", add_session),
+                    ("Training History", history), ("Settings", settings),
+                    ("Sensitivity Converter", converter), ("Peripheral Finder", gear)]
+    buttons = []
+    for label, target in destinations:
+        attributes = {"class": "nav-button"}
+        if label == active:
+            attributes["class"] += " current"
+            attributes["aria-current"] = "page"
+        buttons.append(Button(label, target, **attributes))
+    return buttons
 
 
 def page(state: State, title: str, content: list) -> Page:
@@ -68,13 +102,42 @@ def page(state: State, title: str, content: list) -> Page:
     The * syntax expands the component lists into one new list, in order.
     It does not copy mutable State or create global application data.
     """
-    return Page(state, [Header("FPS Training Toolbox"), *navigation(),
-                        Header(title, level=2), *content])
+    descriptions = {
+        "Dashboard": "Your practice, by game and drill.",
+        "Add Training": "Keep a record of the work you put in.",
+        "Training History": "Review your sessions across both games.",
+        "Settings": "Set the game and goal you are working toward.",
+        "Sensitivity Converter": "Carry your turn distance into another game.",
+        "Peripheral Finder": "A small shortlist for your setup and budget.",
+    }
+    masthead = box([
+        box([box([], "reticle"), Header("FPS Training Toolbox")], "brand"),
+        note("CS2 + VALORANT", "game-tag"),
+    ], "masthead")
+    sidebar = box(navigation(title), "sidebar")
+    sidebar.extra_settings.update({"role": "navigation", "aria-label": "Main navigation"})
+    heading = box([Header(title, level=2), note(descriptions[title])], "page-heading")
+    workspace = box([heading, box(content, "page-content")], "workspace")
+    workspace.extra_settings["role"] = "main"
+    footer = note("Session-only records. Reloading starts a new log.", "app-footer")
+    return Page(state, [box([masthead, box([sidebar, workspace], "app-layout"),
+                             footer], "app-shell")])
 
 
-def field(caption: str, component: object) -> Div:
+def field(caption: str, component: object, help_text: str = "") -> Div:
     """Render an accessible label alongside its actual input component."""
-    return Div([Label(caption, component), component])
+    component.extra_settings["aria-label"] = caption
+    parts = [Label(caption, component), component]
+    if help_text:
+        help_id = component.get_id() + "-help"
+        help_note = note(help_text, "field-help")
+        help_note.extra_settings["id"] = help_id
+        component.extra_settings["aria-describedby"] = help_id
+        parts.append(help_note)
+    name = "field"
+    if isinstance(component, CheckBox):
+        name += " field-check"
+    return box(parts, name)
 
 
 def prepare_static_metadata() -> None:
@@ -146,37 +209,50 @@ def index(state: State) -> Page:
                 drills[session.drill] = [0.0, 0]
             drills[session.drill][0] += session.accuracy
             drills[session.drill][1] += 1
-    content = [
-        Paragraph("Game: " + state.selected_game),
-        Paragraph(str(minutes) + " / " + str(state.practice_goal) + " practice minutes"),
-    ]
+    goal_content = [note("Game: " + state.selected_game, "game-tag"),
+                    Header("Practice goal", level=3),
+                    note(str(minutes) + " / " + str(state.practice_goal)
+                         + " practice minutes", "goal-value"),
+                    ProgressBar(min(minutes, state.practice_goal), max=state.practice_goal,
+                                **{"aria-label": "Practice goal progress"})]
     if count == 0:
-        content.append(Paragraph("Your log for this game is empty. Add a training session to begin."))
+        goal_content.append(note("Your log for this game is empty. Add a training session to begin."))
     if minutes >= state.practice_goal:
-        content.append(Paragraph("Goal reached! 0 minutes remaining."))
+        goal_content.append(note("Goal reached! 0 minutes remaining.", "success"))
     else:
-        content.append(Paragraph(str(state.practice_goal - minutes) + " minutes remaining."))
+        goal_content.append(note(str(state.practice_goal - minutes) + " minutes remaining."))
+    goal_content.append(action("Add Training", add_session))
+    content = [box(goal_content, "goal-panel")]
     rows = []
     for drill in drills:
         rows.append([drill, str(round(drills[drill][0] / drills[drill][1], 2)) + "%"])
+    accuracy_content = [Header("Accuracy by drill", level=3)]
     if rows:
-        content.append(Table(rows, ["Drill", "Average accuracy"]))
-    content.append(Paragraph("Compare accuracy only for the same drill and game. "
-                             "Records stay in this browser app session."))
+        accuracy_content.append(Table(rows, ["Drill", "Average accuracy"]))
+    else:
+        accuracy_content.append(note("No drill averages yet. Your first session will appear here."))
+    accuracy_content.append(note("Compare accuracy only for the same drill and game.", "field-help"))
+    content.append(box(accuracy_content, "data-section"))
     return page(state, "Dashboard", content)
 
 
 def training_form(state: State, game: str, drill: str, minutes: str,
                   accuracy: str, message: str) -> Page:
     """Render the training form and preserve entered values after errors."""
-    return page(state, "Add Training", [
-        Paragraph(message),
+    status = "hint"
+    if message.startswith("Enter a drill"):
+        status = "error"
+    controls = [
         field("Game", SelectBox("game", list(GAMES), game)),
-        field("Drill", TextBox("drill", drill)),
-        field("Minutes", TextBox("minutes", minutes)),
-        field("Accuracy (%)", TextBox("accuracy", accuracy)),
-        Button("Save Session", save_session),
-    ])
+        field("Drill", TextBox("drill", drill, maxlength=80,
+                              placeholder="e.g. Tracking or Flicking")),
+        field("Minutes", TextBox("minutes", minutes, inputmode="numeric"), "Whole minutes, greater than 0"),
+        field("Accuracy (%)", TextBox("accuracy", accuracy, inputmode="decimal"), "A value from 0 to 100"),
+    ]
+    return page(state, "Add Training", [box([
+        note(message, status), box(controls, "form-grid"),
+        box([action("Save Session", save_session), action("Cancel", index, "secondary")], "form-actions"),
+    ], "form-panel")])
 
 
 @route
@@ -191,28 +267,34 @@ def save_session(state: State, game: str = "", drill: str = "",
     """Add a validated session, then display the full history."""
     duration = whole_number(minutes)
     percentage = number(accuracy)
-    if game not in GAMES or not drill.strip() or duration <= 0 or not 0 <= percentage <= 100:
+    if game not in GAMES or not 1 <= len(drill.strip()) <= 80 or duration <= 0 or not 0 <= percentage <= 100:
         default_game = game
         if game not in GAMES:
             default_game = state.selected_game
         return training_form(state, default_game, drill, minutes, accuracy,
-                             "Enter a drill, positive whole minutes, and accuracy from 0 to 100.")
+                             "Enter a drill (1-80 characters), positive whole minutes, and accuracy from 0 to 100.")
     state.sessions.append(TrainingSession(game, drill.strip(), duration, percentage))
     return history(state)
 
 
-def history_page(state: State, message: str) -> Page:
+def history_page(state: State, message: str, confirmation: int = -1) -> Page:
     """List all games and give each delete button its original list index."""
-    content = [Paragraph(message)]
+    content = [note(message, "success" if message == "Session deleted." else "hint")]
     if not state.sessions:
-        content.append(Paragraph("No sessions yet. Add your first training session."))
+        content.append(box([Header("Your next session starts here", level=3),
+                            note("No sessions yet. Add your first training session."),
+                            action("Add Training", add_session)], "empty-state"))
     for position, session in enumerate(state.sessions):
         # enumerate supplies the exact list position as a hidden button argument.
-        content.append(Paragraph(
-            session.game + " / " + session.drill + " / " + str(session.minutes)
-            + " min / " + str(session.accuracy) + "% accuracy"))
-        content.append(Button("Delete Session", delete_session,
-                              arguments={"session_index": position}))
+        details = [note(session.game, "game-tag"), Header(session.drill, level=3),
+                   Paragraph(str(session.minutes) + " min / " + str(session.accuracy) + "% accuracy")]
+        controls = [action("Delete Session", confirm_delete, "danger-secondary",
+                           {"session_index": position})]
+        if confirmation == position:
+            controls = [note("Delete this session? This removes it from the current log.", "error"),
+                        action("Confirm Delete", delete_session, "danger", {"session_index": position}),
+                        action("Keep Session", history, "secondary")]
+        content.append(box([box(details, "session-details"), box(controls, "session-actions")], "session-row"))
     return page(state, "Training History", content)
 
 
@@ -220,6 +302,14 @@ def history_page(state: State, message: str) -> Page:
 def history(state: State) -> Page:
     """Show the complete practice log for both supported games."""
     return history_page(state, "All recorded practice sessions")
+
+
+@route
+def confirm_delete(state: State, session_index: int = -1) -> Page:
+    """Ask before deleting a session; viewing this prompt does not change State."""
+    if session_index < 0 or session_index >= len(state.sessions):
+        return history_page(state, "That session is unavailable. Choose an existing record.")
+    return history_page(state, "Review the selected session before deleting.", session_index)
 
 
 @route
@@ -233,12 +323,14 @@ def delete_session(state: State, session_index: int = -1) -> Page:
 
 def settings_form(state: State, selected_game: str, practice_goal: str, message: str) -> Page:
     """Render preference controls and any validation message."""
-    return page(state, "Settings", [
-        Paragraph(message),
-        field("Default game", SelectBox("selected_game", list(GAMES), selected_game)),
-        field("Practice goal in minutes", TextBox("practice_goal", practice_goal)),
-        Button("Save Settings", save_settings),
-    ])
+    status = "error" if message.startswith("Choose a supported") else "hint"
+    return page(state, "Settings", [box([
+        note(message, status),
+        box([field("Default game", SelectBox("selected_game", list(GAMES), selected_game)),
+             field("Practice goal in minutes", TextBox("practice_goal", practice_goal, inputmode="numeric"),
+                   "A positive whole-minute target for the selected game")], "form-grid"),
+        box([action("Save Settings", save_settings), action("Cancel", index, "secondary")], "form-actions"),
+    ], "form-panel")])
 
 
 @route
@@ -278,15 +370,28 @@ def sensitivity_result(source_game: str, target_game: str,
 def converter_form(state: State, source_game: str, target_game: str,
                    dpi: str, source_sensitivity: str, message: str) -> Page:
     """Show conversion inputs and results together on one page."""
-    return page(state, "Sensitivity Converter", [
-        Paragraph("CS2 and VALORANT default hip-fire settings at a shared DPI."),
+    controls = [
         field("From game", SelectBox("source_game", list(GAMES), source_game)),
         field("To game", SelectBox("target_game", list(GAMES), target_game)),
-        field("Shared mouse DPI", TextBox("dpi", dpi)),
-        field("Source sensitivity", TextBox("source_sensitivity", source_sensitivity)),
-        Button("Convert Sensitivity", convert_sensitivity),
-        Paragraph(message),
-        Paragraph("Matching cm/360 preserves turn distance. FOV and scoped settings affect visual feel."),
+        field("Shared mouse DPI", TextBox("dpi", dpi, inputmode="numeric"), "Keep the same DPI in both games"),
+        field("Source sensitivity", TextBox("source_sensitivity", source_sensitivity,
+                                            inputmode="decimal")),
+    ]
+    result_content = [note(message)]
+    result_class = "converter-note"
+    if message.startswith("Target sensitivity:"):
+        result_content = []
+        for item in message.split("|"):
+            label, value = item.split(":", 1)
+            result_content.append(box([note(label.strip()), Header(value.strip(), level=3)], "result-item"))
+        result_class = "conversion-results"
+    elif message.startswith("Use whole DPI") or message.startswith("Choose"):
+        result_content = [note(message, "error")]
+    return page(state, "Sensitivity Converter", [box([
+        note("CS2 and VALORANT default hip-fire settings at a shared DPI."),
+        box(controls, "form-grid"), action("Convert Sensitivity", convert_sensitivity),
+    ], "form-panel"), box(result_content, result_class),
+        note("Matching cm/360 preserves turn distance. FOV and scoped settings affect visual feel.", "field-help"),
         Link("Conversion reference", "https://github.com/umut-hope/Yaw-Match"),
     ])
 
@@ -335,28 +440,32 @@ def catalog() -> list[GearOption]:
 def gear_form(state: State, category: str, budget: str, wireless_only: bool,
               message: str, show_results: bool) -> Page:
     """Display filters and the fixed shortlist after a valid submission."""
-    content = [
-        Paragraph("A small comparison shortlist. Reference budgets in USD are fixed planning estimates."),
+    controls = [
         field("Category", SelectBox("category", ["Mouse", "Mousepad"], category)),
-        field("Budget ($)", TextBox("budget", budget)),
+        field("Budget ($)", TextBox("budget", budget, inputmode="decimal")),
         field("Wireless mice only", CheckBox("wireless_only", wireless_only)),
-        Button("Find Gear", filter_gear), Paragraph(message),
     ]
+    status = "error" if message.startswith("Choose a category") else "hint"
+    content = [box([note("Reference budgets in USD are fixed planning estimates."),
+                    box(controls, "form-grid gear-filters"), action("Find Gear", filter_gear)], "form-panel"),
+               note(message, status)]
     matches = 0
     if show_results:
         for item in catalog():
             if item.category == category and item.price <= state.gear_budget:
                 if category == "Mousepad" or not wireless_only or item.wireless:
                     matches += 1
-                    content.extend([
+                    content.append(box([
                         Header(item.name, level=3),
-                        Paragraph("$" + str(item.price) + " reference budget. " + item.reason),
+                        note("$" + str(item.price) + " reference budget", "reference-price"),
+                        Paragraph(item.reason),
                         Link("Manufacturer details", item.source),
-                    ])
+                    ], "gear-result"))
         if matches == 0:
-            content.append(Paragraph("No matches. Try a larger budget or change the filters."))
-    content.append(Paragraph("Catalog reviewed November 13, 2026. Check the manufacturer for current "
-                             "prices, fit, and availability. Wireless applies to mice only."))
+            content.append(box([Header("Nothing in this budget yet", level=3),
+                                note("No matches. Try a larger budget or change the filters.")], "empty-state"))
+    content.append(note("Catalog reviewed November 13, 2026. Check the manufacturer for current "
+                        "prices, fit, and availability. Wireless applies to mice only.", "field-help"))
     return page(state, "Peripheral Finder", content)
 
 
@@ -379,6 +488,8 @@ def filter_gear(state: State, category: str = "Mouse", budget: str = "",
 
 
 set_website_title("FPS Training Toolbox")
+set_website_style("none")
+add_website_css_file("site.css")
 set_site_information(
     author="Yibo Wang",
     description="Track FPS practice, match hip-fire sensitivity, and compare a small gear shortlist.",

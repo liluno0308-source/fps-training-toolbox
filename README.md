@@ -16,7 +16,7 @@ at a shared DPI, and filter a small mouse and mousepad shortlist.
 
 Start with Add Training. Select a game, enter a drill, positive whole minutes,
 and an accuracy percentage from 0 to 100. History shows every session and lets
-you delete entries. Settings changes the Dashboard game and practice goal.
+you review a confirmation before deleting entries. Settings changes the Dashboard game and practice goal.
 The converter matches physical cm/360 using the default game factors.
 Peripheral Finder saves your budget and applies category and wireless filters.
 
@@ -28,8 +28,8 @@ product page for current offers and availability.
 
 Install Python and Drafter with `python -m pip install drafter`.
 Open `main.py` in Thonny and run it. Run `python test_main.py` for the tests.
-The test file covers all eleven routes and invalid inputs.
-All 13 tests passed on November 13, 2026, including refreshes without form
+The test file covers all twelve routes and invalid inputs.
+All 14 tests passed on November 13, 2026, including refreshes without form
 arguments. Function lines are below 120 characters.
 
 `prepare_static_metadata` documents a small Drafter 2.2.1 compatibility
@@ -45,7 +45,7 @@ an unsupported metadata update. Application errors are not suppressed.
 
 ## Requirement mapping
 
-- Six pages and eleven routes are defined in main.py.
+- Six pages and twelve routes are defined in main.py.
 - State has sessions, practice_goal, selected_game, and gear_budget.
 - TrainingSession is the second dataclass. Saving and deleting changes its list.
 - save_settings changes both the goal and selected game.
@@ -62,3 +62,11 @@ an unsupported metadata update. Application errors are not suppressed.
 - [Drafter documentation](https://drafter-edu.github.io/drafter/)
 - [Yaw-Match conversion formula and game data](https://github.com/umut-hope/Yaw-Match)
 - Manufacturer sources are linked in the gear finder.
+
+## Interface
+
+The slate training workspace uses shared tokens in site.css, with six-page
+active navigation, a practice progress bar, grouped forms, keyboard focus rings,
+and responsive desktop, tablet, and mobile layouts. Delete Session opens an
+inline confirmation with a Keep Session option. The converter separates its
+four numeric outputs. No decorative imagery or external fonts are required.
