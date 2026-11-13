@@ -77,6 +77,31 @@ def field(caption: str, component: object) -> Div:
     return Div([Label(caption, component), component])
 
 
+def prepare_static_metadata() -> None:
+    """Avoid replaying unsupported metadata updates in Drafter 2.2.1.
+
+    This is a framework compatibility workaround, beyond the CS1 material.
+    set_site_information has already stored the metadata in the server's
+    configuration. Drafter later replays its queued configuration events in
+    Pyodide, but its browser bridge does not recognize the five metadata keys
+    and reports a false synchronization error. The public event-bus queue is
+    filtered before start_server: only those redundant metadata notifications
+    are removed. Routes, State updates, and real error events remain intact.
+    No installed library files or running browser handlers are changed.
+    """
+    from drafter.client_server.commands import get_main_server
+    from drafter.data.details.config import UpdatedConfigurationEvent
+
+    bus = get_main_server().event_bus
+    remaining = []
+    for event in bus.unprocessed_events:
+        if isinstance(event, UpdatedConfigurationEvent):
+            if event.key in ("author", "description", "sources", "planning", "links"):
+                continue
+        remaining.append(event)
+    bus.unprocessed_events = remaining
+
+
 def number(text: str) -> float:
     """Parse a finite decimal or return -1 for invalid input.
 
@@ -363,6 +388,7 @@ set_site_information(
     planning=["project0.docx", "project1.docx"],
     links=["https://github.com/liluno0308-source/fps-training-toolbox"],
 )
+prepare_static_metadata()
 hide_debug_information()
 set_website_framed(False)
 start_server(new_state())

@@ -2,6 +2,13 @@
 
 Built by Yibo Wang for CISC108 using Drafter.
 
+[Open the deployed website](https://liluno0308-source.github.io/fps-training-toolbox/)
+
+[Watch or download the English walkthrough](walkthrough.mp4)
+
+The walkthrough uses actual captures from the deployed website with synthetic
+English narration. It covers all six pages and the results of the main actions.
+
 Track manual CS2 and VALORANT practice, convert default hip-fire sensitivity
 at a shared DPI, and filter a small mouse and mousepad shortlist.
 
@@ -22,6 +29,13 @@ product page for current offers and availability.
 Install Python and Drafter with `python -m pip install drafter`.
 Open `main.py` in Thonny and run it. Run `python test_main.py` for the tests.
 The test file covers all eleven routes and invalid inputs.
+All 13 tests passed on November 13, 2026, including refreshes without form
+arguments. Function lines are below 120 characters.
+
+`prepare_static_metadata` documents a small Drafter 2.2.1 compatibility
+workaround: it removes redundant queued metadata notifications after
+`set_site_information` has stored them. The browser bridge otherwise reports
+an unsupported metadata update. Application errors are not suppressed.
 
 ## Planning and AI assistance
 
