@@ -140,16 +140,18 @@ def field(caption: str, component: object, help_text: str = "") -> Div:
     return box(parts, name)
 
 
-def prepare_static_metadata() -> None:
-    """Avoid replaying unsupported metadata updates in Drafter 2.2.1.
+def prepare_static_configuration() -> None:
+    """Avoid replaying static configuration updates in Drafter 2.2.1.
 
     This is a framework compatibility workaround, beyond the CS1 material.
     set_site_information has already stored the metadata in the server's
     configuration. Drafter later replays its queued configuration events in
     Pyodide, but its browser bridge does not recognize the five metadata keys
-    and reports a false synchronization error. The public event-bus queue is
-    filtered before start_server: only those redundant metadata notifications
-    are removed. Routes, State updates, and real error events remain intact.
+    and reports a false synchronization error. Reapplying the initial 'none'
+    theme also produces a browser-sync error although site.css has loaded.
+    The public event-bus queue is filtered before start_server: only these
+    redundant initial notifications are removed, after their values have been
+    stored. Routes, State updates, and real error events remain intact.
     No installed library files or running browser handlers are changed.
     """
     from drafter.client_server.commands import get_main_server
@@ -160,6 +162,8 @@ def prepare_static_metadata() -> None:
     for event in bus.unprocessed_events:
         if isinstance(event, UpdatedConfigurationEvent):
             if event.key in ("author", "description", "sources", "planning", "links"):
+                continue
+            if event.key == "theme" and event.value == "none":
                 continue
         remaining.append(event)
     bus.unprocessed_events = remaining
@@ -499,7 +503,7 @@ set_site_information(
     planning=["project0.docx", "project1.docx"],
     links=["https://github.com/liluno0308-source/fps-training-toolbox"],
 )
-prepare_static_metadata()
+prepare_static_configuration()
 hide_debug_information()
 set_website_framed(False)
 start_server(new_state())

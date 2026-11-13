@@ -32,10 +32,10 @@ The test file covers all twelve routes and invalid inputs.
 All 14 tests passed on November 13, 2026, including refreshes without form
 arguments. Function lines are below 120 characters.
 
-`prepare_static_metadata` documents a small Drafter 2.2.1 compatibility
-workaround: it removes redundant queued metadata notifications after
+`prepare_static_configuration` documents a small Drafter 2.2.1 compatibility
+workaround: it removes redundant queued metadata and initial-theme notifications after
 `set_site_information` has stored them. The browser bridge otherwise reports
-an unsupported metadata update. Application errors are not suppressed.
+unsupported configuration replays. Application errors are not suppressed.
 
 ## Planning and AI assistance
 
